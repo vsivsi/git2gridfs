@@ -1,0 +1,45 @@
+{
+  "name": "git2gridfs",
+  "version": "0.0.1",
+  "description": "Copy a git repo into a gridfs filestore in loose format",
+  "main": "lib/index.js",
+  "dependencies": {
+    "async": "^1.4.2",
+    "yargs": "^3.21.0",
+    "shelljs": "^0.5.3"
+  },
+  "devDependencies": {
+    "coffee-script": "^1.9.3",
+    "mocha": "^2.2.5",
+    "chai": "^3.2.0",
+    "rewire": "^2.3.4",
+    "sinon": "^1.16.1"
+    },
+  "scripts": {
+    "prepublish": "coffee --compile --output lib/ src/",
+    "test": "make test"
+  },
+  "bin": {
+    "g2g" : "bin/g2g"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vsivsi/git2gridfs.git"
+  },
+  "keywords": [
+    "git",
+    "gridfs",
+    "meteor",
+    "mongodb",
+    "file-collection"
+  ],
+  "engine": {
+    "node": ">=0.10.36"
+  },
+  "readmeFilename": "README.md",
+  "bugs": {
+    "url": "https://github.com/vsivsi/git2gridfs/issues"
+  },
+  "author": "Vaughn Iverson",
+  "license": "MIT"
+}
