@@ -6,7 +6,9 @@
   "dependencies": {
     "async": "^1.4.2",
     "yargs": "^3.21.0",
-    "shelljs": "^0.5.3"
+    "shelljs": "^0.5.3",
+    "mongodb": "^2.0.42",
+    "gridfs-locking-stream": "^1.0.5"
   },
   "devDependencies": {
     "coffee-script": "^1.9.3",

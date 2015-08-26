@@ -4,82 +4,85 @@
 #     See included LICENSE file for details.
 ############################################################################
 
-require 'shelljs/make'
+require 'shelljs/global'
 yargs = require 'yargs'
 async = require 'async'
+mongo = require 'mongodb'
+gfs = require 'gridfs-locking-stream'
+fs = require 'fs'
 
 argv = {}
-
-target.all = (args) ->
-  target.parseArgs args
-  console.log "Args parsed"
-  unless target.verifyRepo()
-    console.error 'Not a valid git repo!'
-    exit 1
-  console.log "About to detect packs"
-  if target.detectPacks()
-    console.log "Packs detected"
-    target.unpackRepo()
-
-target.parseArgs = (args = []) ->
-  argv = yargs.parse args
-  console.dir argv
-  if argv.h
-    yargs.showHelp()
-    exit 1
-
-target.verifyRepo = (args) ->
-  target.parseArgs args
-  ls('.git').indexOf('objects') isnt -1
-
-target.detectPacks = (args) ->
-  target.parseArgs args
-  console.log "Detecting packs"
-  res = ls('.git/objects/pack/pack-*.pack').length > 0
-  console.log "Res: #{res}"
-  res
-
-target.unpackRepo = (args) ->
-  target.parseArgs args
-  console.log "Unpacking!"
-  # create a temp dir
-  tmpdir = Math.floor(1000000000000*Math.random()).toString(36)
-  mkdir tmpdir
-  mv '.git/objects/pack/*', "#{tmpdir}/"
-  for pack in ls "#{tmpdir}/pack-*.pack"
-    exec "git unpack-objects < #{pack}"
-  rm '-rf', tmpdir
+git = ''
+db = null
 
 yargs.usage('''
 
-Usage: $0 [target] [-- [] [] [] ...]
-
-Output:
+Usage: $0 [options]
 
 ''')
   .example('', '''
 
 Something...
 ''')
-    .default('host', '127.0.0.1')
-    .describe('host', 'The domain name or IP address of the host to connect with')
-    .default('port', 3000)
-    .describe('port', 'The server port number to connect with')
-    .default('env', 'METEOR_TOKEN')
-    .describe('env', 'The environment variable to check for a valid token')
-    .default('method', 'account')
-    .describe('method', 'The login method: currently "email", "username", "account" or "token"')
-    .default('retry', 5)
-    .describe('retry', 'Number of times to retry login before giving up')
-    .describe('ssl', 'Use an SSL encrypted connection to connect with the host')
-    .boolean('ssl')
-    .default('ssl', false)
-    .describe('plaintext', 'For Meteor servers older than v0.8.2, fallback to sending the password as plaintext')
-    .default('plaintext', false)
-    .boolean('plaintext')
+    .default('host', 'localhost')
+    .describe('host', 'The domain name or IP address of the mongodb host to connect with')
+    .default('port', 3001)
+    .describe('port', 'The mongodb server port number to connect with')
+    .default('db', 'meteor')
+    .describe('db', 'The mongodb database to use')
+    .default('gridfs', 'gridfs')
+    .describe('gridfs', 'The name of the gridfs bucket to use')
+    .default('git', 'git')
+    .describe('git', 'path to the git executable to use')
+    .alias('g','git')
+    .describe('name', 'name of repository in gridfs store')
+    .default('name', 'repo')
+    .alias('n','name')
     .boolean('h')
     .alias('h','help')
     .wrap(null)
     .version((() -> require('../package').version))
 
-# module?.exports = login
+
+# Parse command line args
+argv = yargs.parse process.argv
+console.dir argv
+if argv.h
+  yargs.showHelp()
+  exit 1
+
+# Make sure git is installed
+unless git = which argv.git
+  console.error 'git command not found'
+  exit 1
+
+# Make sure this is the root of a git repo
+unless ls('.git').indexOf('objects') isnt -1
+  console.error 'Not a valid git repo!'
+  exit 1
+
+# If the repo is packed, unpack it
+console.log "About to detect packs"
+if ls('.git/objects/pack/pack-*.pack').length > 0
+  console.log "Packs detected"
+  # Move packs to a temp dir to get them out of the repo
+  tmpdir = Math.floor(1000000000000*Math.random()).toString(36)
+  mkdir tmpdir
+  mv '.git/objects/pack/*', "#{tmpdir}/"
+  # Unpack them one by one
+  for pack in ls "#{tmpdir}/pack-*.pack"
+    exec "git unpack-objects < #{pack}"
+  # cleanup
+  rm '-rf', tmpdir
+
+server = new mongo.Server argv.host, argv.port
+db = new mongo.Db argv.db, server, {w:1}
+db.open (err) ->
+  console.error "Couldn't open database connection, #{err}" if err
+  console.log "Connected to mongo!", db
+  db.close (err) ->
+    console.error "Couldn't close database connection, #{err}" if err
+    console.log "Disconnected from mongo!", db
+
+copyObjects = () ->
+  console.log "Copying Objects!"
