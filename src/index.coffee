@@ -43,7 +43,6 @@ Something...
     .wrap(null)
     .version((() -> require('../package').version))
 
-
 # Parse command line args
 argv = yargs.parse process.argv
 console.dir argv
@@ -57,7 +56,7 @@ unless git = which argv.git
   exit 1
 
 # Make sure this is the root of a git repo
-unless ls('.git').indexOf('objects') isnt -1
+unless 'objects' in ls('.git')
   console.error 'Not a valid git repo!'
   exit 1
 
@@ -79,10 +78,16 @@ server = new mongo.Server argv.host, argv.port
 db = new mongo.Db argv.db, server, {w:1}
 db.open (err) ->
   console.error "Couldn't open database connection, #{err}" if err
-  console.log "Connected to mongo!", db
+  console.log "Connected to mongo!"
+
+  for dir in ls '.git/objects/*/' when dir.length is 15
+    console.log "Dir", dir
+    for obj in ls dir # when obj.length is 15
+      console.log "Obj: #{dir}/#{obj}"
+
   db.close (err) ->
     console.error "Couldn't close database connection, #{err}" if err
-    console.log "Disconnected from mongo!", db
+    console.log "Disconnected from mongo!"
 
 copyObjects = () ->
   console.log "Copying Objects!"
