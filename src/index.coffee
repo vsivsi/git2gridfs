@@ -12,8 +12,14 @@ argv = {}
 
 target.all = (args) ->
   target.parseArgs args
-  target.verifyRepo()
-  target.unpackRepo()
+  console.log "Args parsed"
+  unless target.verifyRepo()
+    console.error 'Not a valid git repo!'
+    exit 1
+  console.log "About to detect packs"
+  if target.detectPacks()
+    console.log "Packs detected"
+    target.unpackRepo()
 
 target.parseArgs = (args = []) ->
   argv = yargs.parse args
@@ -24,11 +30,25 @@ target.parseArgs = (args = []) ->
 
 target.verifyRepo = (args) ->
   target.parseArgs args
+  ls('.git').indexOf('objects') isnt -1
+
+target.detectPacks = (args) ->
+  target.parseArgs args
+  console.log "Detecting packs"
+  res = ls('.git/objects/pack/pack-*.pack').length > 0
+  console.log "Res: #{res}"
+  res
 
 target.unpackRepo = (args) ->
   target.parseArgs args
-
-
+  console.log "Unpacking!"
+  # create a temp dir
+  tmpdir = Math.floor(1000000000000*Math.random()).toString(36)
+  mkdir tmpdir
+  mv '.git/objects/pack/*', "#{tmpdir}/"
+  for pack in ls "#{tmpdir}/pack-*.pack"
+    exec "git unpack-objects < #{pack}"
+  rm '-rf', tmpdir
 
 yargs.usage('''
 
