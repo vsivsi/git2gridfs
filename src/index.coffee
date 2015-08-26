@@ -34,12 +34,12 @@ Something...
     .describe('gridfs', 'The name of the gridfs bucket to use')
     .default('git', 'git')
     .describe('git', 'path to the git executable to use')
-    .alias('g','git')
+    .alias('g', 'git')
     .describe('name', 'name of repository in gridfs store')
     .default('name', 'repo')
-    .alias('n','name')
+    .alias('n', 'name')
     .boolean('h')
-    .alias('h','help')
+    .alias('h', 'help')
     .wrap(null)
     .version((() -> require('../package').version))
 
@@ -79,15 +79,24 @@ db = new mongo.Db argv.db, server, {w:1}
 db.open (err) ->
   console.error "Couldn't open database connection, #{err}" if err
   console.log "Connected to mongo!"
-
+  grid = new gfs db, mongo, argv.gridfs
+  objList = []
   for dir in ls '.git/objects/*/' when dir.length is 15
-    console.log "Dir", dir
     for obj in ls dir # when obj.length is 15
       console.log "Obj: #{dir}/#{obj}"
-
-  db.close (err) ->
-    console.error "Couldn't close database connection, #{err}" if err
-    console.log "Disconnected from mongo!"
+      objList.push "#{dir}/#{obj}"
+  console.dir objList
+  doIt = (obj, cb) ->
+    console.log "Doin' it for #{argv.name}#{obj}"
+    # Check for object in gridfs
+    grid.exist { _id: "#{argv.name}#{obj}" }, (err, found) ->
+      console.log "Found?, #{found}"
+      cb(err, found)
+  async.eachLimit objList, 1, doIt, (err) ->
+    console.log "Done doing it"
+    db.close (err) ->
+      console.error "Couldn't close database connection, #{err}" if err
+      console.log "Disconnected from mongo!"
 
 copyObjects = () ->
   console.log "Copying Objects!"
