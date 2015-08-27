@@ -130,7 +130,7 @@ db.open (err) ->
       ,
         (err, ws) ->
           return cb err if err
-          rs = fs.createReadStream obj
+          rs = fs.createReadStream filename
           rs.pipe(ws)
           ws.on 'error', (err) ->
             cb err
@@ -157,7 +157,7 @@ db.open (err) ->
       refs.push '.git/HEAD'
       console.log "Here are the refs!"
       console.dir refs
-      async.eachLimit refs, 1, writeObj, cb
+      async.eachLimit refs, 1, copyFile, cb
     ], (err) ->
       throw err if err
       db.close (err) ->
