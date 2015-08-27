@@ -30,7 +30,7 @@ Something...
     .describe('port', 'The mongodb server port number to connect with')
     .default('db', 'meteor')
     .describe('db', 'The mongodb database to use')
-    .default('gridfs', 'gridfs')
+    .default('gridfs', 'fs')
     .describe('gridfs', 'The name of the gridfs bucket to use')
     .default('git', 'git')
     .describe('git', 'path to the git executable to use')
@@ -38,6 +38,9 @@ Something...
     .describe('name', 'name of repository in gridfs store')
     .default('name', 'repo')
     .alias('n', 'name')
+    .describe('chunksize', 'gridfs chunksize to use when writing to the filestore')
+    .default('chunksize', 2*1024*1024 - 1024)
+    .alias('c', 'chunksize')
     .boolean('h')
     .alias('h', 'help')
     .wrap(null)
@@ -86,14 +89,36 @@ db.open (err) ->
       console.log "Obj: #{dir}/#{obj}"
       objList.push "#{dir}/#{obj}"
   console.dir objList
+
   doIt = (obj, cb) ->
     console.log "Doin' it for #{argv.name}#{obj}"
     # Check for object in gridfs
     grid.exist { _id: "#{argv.name}#{obj}" }, (err, found) ->
-      console.log "Found?, #{found}"
-      cb(err, found)
+      if err or found
+        return cb err, found
+      console.log "Copying! #{found}"
+      grid.createWriteStream
+          _id: "#{argv.name}#{obj}"
+          filename: "#{argv.name}#{obj}"
+          content_type: 'application/octet-stream'
+          alias: []
+          metadata: {}
+          chunkSize: argv.chunksize
+          mode: 'w'
+        ,
+          (err, ws) ->
+            return cb err if err
+            rs = fs.createReadStream obj
+            rs.pipe(ws)
+            ws.on 'error', (err) ->
+              cb err
+            ws.on 'close', (file) ->
+              console.log "Wrote file:"
+              console.dir file
+              cb null, file
+
   async.eachLimit objList, 1, doIt, (err) ->
-    console.log "Done doing it"
+    console.log "Done doing it", err
     db.close (err) ->
       console.error "Couldn't close database connection, #{err}" if err
       console.log "Disconnected from mongo!"
