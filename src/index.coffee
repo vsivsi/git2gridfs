@@ -111,8 +111,7 @@ db.open (err) ->
             ws.on 'error', (err) ->
               cb err
             ws.on 'close', (file) ->
-              console.log "Wrote file:"
-              console.dir file
+              console.log "Wrote file: #{file._id}"
               ws.lockReleased (err, ld) ->
                 cb null, file
 
@@ -136,8 +135,7 @@ db.open (err) ->
           ws.on 'error', (err) ->
             cb err
           ws.on 'close', (file) ->
-            console.log "Wrote file:"
-            console.dir file
+            console.log "Wrote file: #{file._id}"
             ws.lockReleased (err, ld) ->
               cb null, file
 
