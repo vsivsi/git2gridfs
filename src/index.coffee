@@ -119,9 +119,12 @@ db.open (err) ->
 
   async.eachLimit objList, 1, doIt, (err) ->
     console.log "Done doing it", err
-    db.close (err) ->
-      console.error "Couldn't close database connection, #{err}" if err
-      console.log "Disconnected from mongo!"
+    setTimeout () ->
+        db.close (err) ->
+          console.error "Couldn't close database connection, #{err}" if err
+          console.log "Disconnected from mongo!"
+      ,
+          1000
 
 copyObjects = () ->
   console.log "Copying Objects!"
