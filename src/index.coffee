@@ -118,18 +118,11 @@ db.open (err) ->
               ws.lockReleased (err, ld) ->
                 cb null, file
 
-  async.eachLimit objList, 1, doIt, (err) ->
-    console.log "Done doing it", err
+  async.series [
+    (cb) ->
+      async.eachLimit objList, 1, doIt, cb
+  ] , (err) ->
+    throw err if err
     db.close (err) ->
       console.error "Couldn't close database connection, #{err}" if err
       console.log "Disconnected from mongo!"
-
-    # setTimeout () ->
-    #     db.close (err) ->
-    #       console.error "Couldn't close database connection, #{err}" if err
-    #       console.log "Disconnected from mongo!"
-    #   ,
-    #       1000  # Wait a bit before closing
-
-copyObjects = () ->
-  console.log "Copying Objects!"
