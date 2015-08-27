@@ -124,7 +124,7 @@ db.open (err) ->
           console.error "Couldn't close database connection, #{err}" if err
           console.log "Disconnected from mongo!"
       ,
-          1000
+          1000  # Wait a bit before closing
 
 copyObjects = () ->
   console.log "Copying Objects!"
