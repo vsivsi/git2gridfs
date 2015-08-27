@@ -77,21 +77,18 @@ if ls('.git/objects/pack/pack-*.pack').length > 0
   # cleanup
   rm '-rf', tmpdir
 
+console.log "Calculate info-refs"
+exec 'git update-server-info'
+
 server = new mongo.Server argv.host, argv.port
 db = new mongo.Db argv.db, server, {w:1}
 db.open (err) ->
   console.error "Couldn't open database connection, #{err}" if err
   console.log "Connected to mongo!"
   grid = new gfs db, mongo, argv.gridfs
-  objList = []
-  for dir in ls '.git/objects/*/' when dir.length is 15
-    for obj in ls dir # when obj.length is 15
-      console.log "Obj: #{dir}/#{obj}"
-      objList.push "#{dir}/#{obj}"
-  console.dir objList
 
-  doIt = (obj, cb) ->
-    console.log "Doin' it for #{argv.name}#{obj}"
+  writeObj = (obj, cb) ->
+    console.log "Processing #{argv.name}#{obj}"
     # Check for object in gridfs
     grid.exist { _id: "#{argv.name}#{obj}" }, (err, found) ->
       if err or found
@@ -102,7 +99,8 @@ db.open (err) ->
           filename: "#{argv.name}#{obj}"
           content_type: 'application/octet-stream'
           alias: []
-          metadata: {}
+          metadata:
+            _Git: {}
           chunkSize: argv.chunksize
           mode: 'w'
         ,
@@ -118,11 +116,52 @@ db.open (err) ->
               ws.lockReleased (err, ld) ->
                 cb null, file
 
+  copyFile = (filename, cb) ->
+    console.log "Copying #{argv.name}#{filename}"
+    # Overwrite object in gridfs
+    grid.createWriteStream
+        _id: "#{argv.name}#{filename}"
+        filename: "#{argv.name}#{filename}"
+        content_type: 'application/octet-stream'
+        alias: []
+        metadata:
+          _Git: {}
+        chunkSize: argv.chunksize
+        mode: 'w'
+      ,
+        (err, ws) ->
+          return cb err if err
+          rs = fs.createReadStream obj
+          rs.pipe(ws)
+          ws.on 'error', (err) ->
+            cb err
+          ws.on 'close', (file) ->
+            console.log "Wrote file:"
+            console.dir file
+            ws.lockReleased (err, ld) ->
+              cb null, file
+
   async.series [
     (cb) ->
-      async.eachLimit objList, 1, doIt, cb
-  ] , (err) ->
-    throw err if err
-    db.close (err) ->
-      console.error "Couldn't close database connection, #{err}" if err
-      console.log "Disconnected from mongo!"
+      objList = []
+      for dir in ls '.git/objects/*/' when dir.length is 15
+        for obj in ls dir # when obj.length is 15
+          console.log "Obj: #{dir}/#{obj}"
+          objList.push "#{dir}/#{obj}"
+      console.dir objList
+      async.eachLimit objList, 1, writeObj, cb
+    (cb) ->
+      # Copy refs
+      tags = (dir for dir in ls '.git/refs/tags/*')
+      branches = (dir for dir in ls '.git/refs/heads/*')
+      refs = branches.concat tags
+      refs.push '.git/info/refs'
+      refs.push '.git/HEAD'
+      console.log "Here are the refs!"
+      console.dir refs
+      async.eachLimit refs, 1, writeObj, cb
+    ], (err) ->
+      throw err if err
+      db.close (err) ->
+        console.error "Couldn't close database connection, #{err}" if err
+        console.log "Disconnected from mongo!"
